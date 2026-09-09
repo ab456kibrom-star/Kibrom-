@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Lookup user role from trusted /users/{userId} or /admins/{userId} document
+    function getUserRole() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : 'Viewer';
+    }
+
+    // RBAC Tier Checks
+    function isAdmin() {
+      return isSignedIn() && (
+        getUserRole() == 'Admin' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isEditor() {
+      return isSignedIn() && (
+        getUserRole() == 'Editor' ||
+        isAdmin()
+      );
+    }
+
+    function isViewer() {
+      return isSignedIn();
+    }
+
+    // Validation for User entity
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role']) &&
+        data.id is string && isValidId(data.id) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 200 &&
+        data.role in ['Admin', 'Editor', 'Viewer'];
+    }
+
+    // Validation for ScheduleItem entity
+    function isValidScheduleItem(data) {
+      return data.keys().hasAll(['id', 'day', 'responsible', 'keyActivities', 'evaluation', 'category']) &&
+        data.id is string && isValidId(data.id) &&
+        data.day is string && data.day.size() > 0 && data.day.size() <= 100 &&
+        data.responsible is string && data.responsible.size() > 0 && data.responsible.size() <= 100 &&
+        data.keyActivities is string && data.keyActivities.size() <= 2000 &&
+        data.evaluation is number && data.evaluation >= 0 && data.evaluation <= 100 &&
+        data.category is string && data.category.size() <= 50;
+    }
+
+    // Schedule collection rules
+    match /schedules/{scheduleId} {
+      // Viewer, Editor, and Admin can view/read schedule data
+      allow get, list: if isViewer() && isValidId(scheduleId);
+
+      // Create: Editor and Admin only
+      allow create: if isEditor() &&
+        isValidId(scheduleId) &&
+        isValidScheduleItem(incoming()) &&
+        incoming().id == scheduleId;
+
+      // Update: Editor and Admin can modify schedule data
+      allow update: if isEditor() &&
+        isValidId(scheduleId) &&
+        isValidScheduleItem(incoming());
+
+      // Delete: Strictly restricted to Admin role
+      allow delete: if isAdmin() && isValidId(scheduleId);
+    }
+
+    // User management and RBAC profiles
+    match /users/{userId} {
+      // Authenticated users can read the user directory
+      allow get, list: if isSignedIn() && isValidId(userId);
+
+      // Self-creation: Can only create with 'Viewer' role unless Admin creates it
+      allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        (request.auth.uid == userId && incoming().role == 'Viewer') ||
+        isAdmin()
+      );
+
+      // Updates: Only Admins can change user roles; users can update non-role fields
+      allow update: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() ||
+        (request.auth.uid == userId && incoming().role == existing().role)
+      );
+
+      // Deletions: Admin only
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Trusted Admin document list
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only manageable through secure backend or console
+    }
+
+    // Validation for ChatChannel
+    function isValidChannel(data) {
+      return data.keys().hasAll(['id', 'name', 'type']) &&
+        data.id is string && isValidId(data.id) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.type in ['public', 'direct'];
+    }
+
+    // Validation for ChatMessage
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'channelId', 'senderId', 'senderName', 'text']) &&
+        data.id is string && isValidId(data.id) &&
+        data.channelId is string && isValidId(data.channelId) &&
+        data.senderId is string && data.senderId.size() > 0 && data.senderId.size() <= 128 &&
+        data.senderName is string && data.senderName.size() > 0 && data.senderName.size() <= 100 &&
+        data.text is string && data.text.size() > 0 && data.text.size() <= 4000;
+    }
+
+    // Chat channels and direct messaging between team members / friends
+    match /channels/{channelId} {
+      allow get, list: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
+
+      // Messages subcollection within channel
+      match /messages/{messageId} {
+        allow get, list: if true;
+        allow create: if isValidId(messageId) && isValidMessage(incoming());
+        allow update: if isValidMessage(incoming());
+        allow delete: if isAdmin() || (isSignedIn() && existing().senderId == request.auth.uid);
+      }
+    }
+  }
+}

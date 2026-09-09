@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with assigned RBAC role",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["Admin", "Editor", "Viewer"] },
+        "avatar": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "ScheduleItem": {
+      "title": "ScheduleItem",
+      "description": "Weekly activity milestone and maintenance action item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "day": { "type": "string" },
+        "responsible": { "type": "string" },
+        "keyActivities": { "type": "string" },
+        "evaluation": { "type": "number" },
+        "category": { "type": "string" },
+        "safetyNotes": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "day", "responsible", "keyActivities", "evaluation", "category"]
+    },
+    "ChatChannel": {
+      "title": "ChatChannel",
+      "description": "Team chat channel or direct message thread between friends",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["public", "direct"] },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "type"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Real-time chat message sent in a channel or direct message to friends",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "channelId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderEmail": { "type": "string", "format": "email" },
+        "senderRole": { "type": "string" },
+        "text": { "type": "string" },
+        "taskId": { "type": "string" },
+        "taskTitle": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "channelId", "senderId", "senderName", "text"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "App user records with role definition (Admin, Editor, Viewer)"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": "ScheduleItem",
+      "description": "Weekly schedule activities with RBAC enforcement for create/modify/delete"
+    },
+    "/channels/{channelId}": {
+      "schema": "ChatChannel",
+      "description": "Chat channels and direct conversations between team members"
+    },
+    "/channels/{channelId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Real-time chat messages within a channel or direct thread"
+    }
+  }
+}

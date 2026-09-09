@@ -1,0 +1,6 @@
+{
+  "name": "Weekly Activity Schedule",
+  "description": "Professional activity planner and schedule manager with Google Calendar milestone export, Gemini AI Schedule Copilot, feasibility analysis, real-time team chat with friends, live location tracking, task notification reminders, RBAC, and Google Sheets sync.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
