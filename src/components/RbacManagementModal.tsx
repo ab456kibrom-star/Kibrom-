@@ -82,6 +82,7 @@ export const RbacManagementModal: React.FC<RbacManagementModalProps> = ({
     'update_evaluation',
     'add_subtask',
     'export_csv',
+    'import_csv',
     'sync_sheets',
     'import_sheets',
     'manage_roles',

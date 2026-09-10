@@ -46,6 +46,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionAction, boolean
     update_evaluation: true,
     add_subtask: true,
     export_csv: true,
+    import_csv: true,
     sync_sheets: true,
     import_sheets: true,
     manage_roles: true,
@@ -60,6 +61,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionAction, boolean
     update_evaluation: true,
     add_subtask: true,
     export_csv: true,
+    import_csv: true,
     sync_sheets: true,
     import_sheets: false, // Destructive replace restricted to Admin
     manage_roles: false, // Role assignment restricted to Admin
@@ -74,6 +76,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Record<PermissionAction, boolean
     update_evaluation: false,
     add_subtask: false,
     export_csv: true,
+    import_csv: false,
     sync_sheets: false,
     import_sheets: false,
     manage_roles: false,
@@ -120,6 +123,11 @@ export const ACTION_DESCRIPTIONS: Record<
     label: 'Download / Export CSV',
     minRole: 'Viewer',
     description: 'Export schedule data to local CSV file.',
+  },
+  import_csv: {
+    label: 'Upload & Import CSV',
+    minRole: 'Editor',
+    description: 'Upload a CSV file to replace current workspace schedule items.',
   },
   sync_sheets: {
     label: 'Create & Sync Google Sheets',

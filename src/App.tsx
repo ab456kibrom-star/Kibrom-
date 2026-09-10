@@ -53,6 +53,7 @@ import { ChatDrawer } from './components/ChatDrawer';
 import { FloatingChatWidget } from './components/FloatingChatWidget';
 import { GeminiScheduleCopilot } from './components/GeminiScheduleCopilot';
 import { CalendarExportModal } from './components/CalendarExportModal';
+import { CsvImportModal } from './components/CsvImportModal';
 
 const STORAGE_KEY = 'activity_schedule_data_v1';
 const SYNC_STORAGE_KEY = 'activity_schedule_sync_meta_v1';
@@ -659,6 +660,24 @@ export default function App() {
     exportToCsv(items);
   };
 
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
+
+  const handleOpenImportCsv = () => {
+    if (!hasPermission(currentUserRole, 'import_csv')) {
+      handleRestrictedAction('import_csv');
+      return;
+    }
+    setIsCsvImportModalOpen(true);
+  };
+
+  const handleImportCsvItems = (newItems: ScheduleItem[]) => {
+    if (!hasPermission(currentUserRole, 'import_csv')) {
+      handleRestrictedAction('import_csv');
+      return;
+    }
+    setItems(newItems);
+  };
+
   // Notification and Reminder Handlers
   const handleOpenSetReminder = (task?: ScheduleItem) => {
     setReminderTargetTask(task || (items.length > 0 ? items[0] : null));
@@ -821,6 +840,7 @@ export default function App() {
         onOpenRbacModal={() => setIsRbacModalOpen(true)}
         onSwitchRole={handleSwitchRole}
         onExportCsv={handleExportCsv}
+        onImportCsv={handleOpenImportCsv}
         onOpenAddModal={() => {
           if (!hasPermission(currentUserRole, 'create_task')) {
             handleRestrictedAction('create_task');
@@ -1056,6 +1076,16 @@ export default function App() {
         user={user}
         onLogin={handleLogin}
         singleItemToExport={calendarItemToExport}
+      />
+
+      {/* CSV File Import & Replace Modal */}
+      <CsvImportModal
+        isOpen={isCsvImportModalOpen}
+        onClose={() => setIsCsvImportModalOpen(false)}
+        onImportItems={handleImportCsvItems}
+        currentUserRole={currentUserRole}
+        currentItemsCount={items.length}
+        onRestrictedAction={() => handleRestrictedAction('import_csv')}
       />
 
       {/* Mandatory User Confirmation Modal for Destructive Operations */}

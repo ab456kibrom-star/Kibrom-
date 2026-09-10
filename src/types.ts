@@ -47,6 +47,7 @@ export type PermissionAction =
   | 'update_evaluation'
   | 'add_subtask'
   | 'export_csv'
+  | 'import_csv'
   | 'sync_sheets'
   | 'import_sheets'
   | 'manage_roles'

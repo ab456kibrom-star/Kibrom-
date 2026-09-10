@@ -3,6 +3,7 @@ import {
   CalendarDays,
   FileSpreadsheet,
   Download,
+  Upload,
   Plus,
   ExternalLink,
   LogOut,
@@ -25,6 +26,7 @@ interface HeaderProps {
   syncState: GoogleSheetsSyncState;
   onOpenSyncModal: () => void;
   onExportCsv: () => void;
+  onImportCsv?: () => void;
   onOpenAddModal: () => void;
   viewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
@@ -48,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   syncState,
   onOpenSyncModal,
   onExportCsv,
+  onImportCsv,
   onOpenAddModal,
   viewMode,
   onChangeViewMode,
@@ -208,6 +211,20 @@ export const Header: React.FC<HeaderProps> = ({
                 <Download className="w-3.5 h-3.5 text-slate-500" />
                 <span className="hidden sm:inline">CSV</span>
               </button>
+
+              {/* CSV import */}
+              {onImportCsv && (
+                <button
+                  id="header-import-csv-btn"
+                  type="button"
+                  onClick={onImportCsv}
+                  title="Upload CSV to replace schedule"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-all shadow-2xs cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="hidden sm:inline">Import</span>
+                </button>
+              )}
             </div>
 
             <div className="hidden sm:block w-[1px] h-6 bg-slate-200 mx-0.5"></div>
