@@ -54,6 +54,13 @@ import { FloatingChatWidget } from './components/FloatingChatWidget';
 import { GeminiScheduleCopilot } from './components/GeminiScheduleCopilot';
 import { CalendarExportModal } from './components/CalendarExportModal';
 import { CsvImportModal } from './components/CsvImportModal';
+import {
+  validateFirestoreConnection,
+  subscribeToScheduleItems,
+  saveScheduleItemToFirestore,
+  batchSaveScheduleItemsToFirestore,
+  deleteScheduleItemFromFirestore,
+} from './services/scheduleFirestore';
 
 const STORAGE_KEY = 'activity_schedule_data_v1';
 const SYNC_STORAGE_KEY = 'activity_schedule_sync_meta_v1';
@@ -367,6 +374,27 @@ export default function App() {
     } catch (e) {}
   }, [syncState]);
 
+  // Firestore connection validation on startup
+  useEffect(() => {
+    validateFirestoreConnection().then((connected) => {
+      if (connected) {
+        console.info('Connected to Firebase Firestore successfully.');
+      }
+    });
+  }, []);
+
+  // Real-time Firestore subscription for schedules
+  useEffect(() => {
+    const unsubscribe = subscribeToScheduleItems((remoteItems) => {
+      if (remoteItems && remoteItems.length > 0) {
+        setItems(remoteItems);
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   // Listen to Auth State
   useEffect(() => {
     const unsubscribe = initAuth(
@@ -447,8 +475,8 @@ export default function App() {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => {
+    setItems((prev) => {
+      const updated = prev.map((item) => {
         if (item.id !== itemId) return item;
 
         const updatedSubtasks = item.subtasks.map((s) =>
@@ -460,14 +488,20 @@ export default function App() {
         const done = updatedSubtasks.filter((s) => s.completed).length;
         const newEvaluation = total > 0 ? Math.round((done / total) * 100) : item.evaluation;
 
-        return {
+        const updatedItem = {
           ...item,
           subtasks: updatedSubtasks,
           evaluation: newEvaluation,
           updatedAt: new Date().toISOString(),
         };
-      })
-    );
+
+        // Fire-and-forget Firestore write
+        saveScheduleItemToFirestore(updatedItem).catch(() => {});
+
+        return updatedItem;
+      });
+      return updated;
+    });
   };
 
   const handleUpdateEvaluation = (itemId: string, evaluation: number) => {
@@ -476,8 +510,8 @@ export default function App() {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => {
+    setItems((prev) => {
+      const updated = prev.map((item) => {
         if (item.id !== itemId) return item;
 
         // If user marks 100%, auto-check all subtasks; if 0%, uncheck all
@@ -488,14 +522,19 @@ export default function App() {
           updatedSubtasks = item.subtasks.map((s) => ({ ...s, completed: false }));
         }
 
-        return {
+        const updatedItem = {
           ...item,
           evaluation,
           subtasks: updatedSubtasks,
           updatedAt: new Date().toISOString(),
         };
-      })
-    );
+
+        saveScheduleItemToFirestore(updatedItem).catch(() => {});
+
+        return updatedItem;
+      });
+      return updated;
+    });
   };
 
   const handleAddSubtask = (itemId: string, text: string) => {
@@ -504,8 +543,8 @@ export default function App() {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => {
+    setItems((prev) => {
+      const updated = prev.map((item) => {
         if (item.id !== itemId) return item;
         const newSub = {
           id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -514,14 +553,19 @@ export default function App() {
         };
         const updatedSubtasks = [...item.subtasks, newSub];
 
-        return {
+        const updatedItem = {
           ...item,
           subtasks: updatedSubtasks,
           keyActivities: `${item.keyActivities}\n${text}`,
           updatedAt: new Date().toISOString(),
         };
-      })
-    );
+
+        saveScheduleItemToFirestore(updatedItem).catch(() => {});
+
+        return updatedItem;
+      });
+      return updated;
+    });
   };
 
   const handleSaveTask = (taskData: Partial<ScheduleItem>) => {
@@ -532,17 +576,16 @@ export default function App() {
     }
 
     if (editingItem) {
+      const updatedItem: ScheduleItem = {
+        ...editingItem,
+        ...taskData,
+        updatedAt: new Date().toISOString(),
+      } as ScheduleItem;
+
       setItems((prev) =>
-        prev.map((item) =>
-          item.id === editingItem.id
-            ? ({
-                ...item,
-                ...taskData,
-                updatedAt: new Date().toISOString(),
-              } as ScheduleItem)
-            : item
-        )
+        prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
       );
+      saveScheduleItemToFirestore(updatedItem).catch(() => {});
       setEditingItem(null);
     } else {
       const newItem: ScheduleItem = {
@@ -557,6 +600,7 @@ export default function App() {
         updatedAt: new Date().toISOString(),
       };
       setItems((prev) => [...prev, newItem]);
+      saveScheduleItemToFirestore(newItem).catch(() => {});
     }
   };
 
@@ -574,6 +618,7 @@ export default function App() {
       isDestructive: true,
       onConfirm: () => {
         setItems((prev) => prev.filter((i) => i.id !== item.id));
+        deleteScheduleItemFromFirestore(item.id).catch(() => {});
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
       },
     });
@@ -676,6 +721,7 @@ export default function App() {
       return;
     }
     setItems(newItems);
+    batchSaveScheduleItemsToFirestore(newItems).catch(() => {});
   };
 
   // Notification and Reminder Handlers
